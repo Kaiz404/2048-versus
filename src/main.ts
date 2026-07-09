@@ -35,7 +35,7 @@ const ARROWS: Record<string, Direction> = {
 };
 
 function formatElapsed(ms: number): string {
-  const total = Math.max(0, ms);
+  const total = Math.max(0, Math.floor(ms));
   const minutes = Math.floor(total / 60000);
   const seconds = Math.floor((total % 60000) / 1000);
   const millis = total % 1000;
@@ -131,6 +131,7 @@ class GameApp {
     const onSettingChange = () => {
       this.syncDifficultyVisibility();
       this.newGame();
+      this.releaseUiFocus();
     };
     this.modeSelect.addEventListener("change", onSettingChange);
     this.opponentSelect.addEventListener("change", onSettingChange);
@@ -143,6 +144,25 @@ class GameApp {
     window.addEventListener("resize", () => this.onResize());
 
     this.newGame();
+  }
+
+  private releaseUiFocus(): void {
+    const el = document.activeElement;
+    if (
+      el instanceof HTMLSelectElement ||
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLButtonElement
+    ) {
+      el.blur();
+    }
+  }
+
+  private isGameKey(e: KeyboardEvent): boolean {
+    if (e.code === "Space" || e.key === " ") return true;
+    if (WASD[e.key.toLowerCase()] !== undefined) return true;
+    if (ARROWS[e.key] !== undefined) return true;
+    return false;
   }
 
   private syncDifficultyVisibility(): void {
@@ -251,6 +271,7 @@ class GameApp {
     this.statusEl.classList.remove("win");
     this.seedEl.textContent = `Seed ${this.match.state.seed} · fair shared RNG`;
     this.updateHelp(config.mode);
+    this.releaseUiFocus();
   }
 
   private onResize(): void {
@@ -265,7 +286,15 @@ class GameApp {
   private onKey(e: KeyboardEvent): void {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const tag = (e.target as HTMLElement | null)?.tagName;
-    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    const onFormControl = tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA";
+
+    // Dropdowns keep focus after a change — steal game keys back for play.
+    if (onFormControl && this.isGameKey(e)) {
+      e.preventDefault();
+      this.releaseUiFocus();
+    } else if (onFormControl) {
+      return;
+    }
 
     if (e.code === "Space" || e.key === " ") {
       e.preventDefault();
