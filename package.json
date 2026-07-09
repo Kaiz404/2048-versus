@@ -1,0 +1,17 @@
+{
+  "name": "2048-versus",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test:engine": "tsx src/game/engine.selftest.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
