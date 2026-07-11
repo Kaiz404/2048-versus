@@ -126,6 +126,9 @@ class GameApp {
       </div>
 
       <div class="room-panel" data-room-panel hidden>
+        <div class="relay-health" data-relay-health aria-live="polite">
+          Checking multiplayer server…
+        </div>
         <div class="room-row">
           <button type="button" data-host>Create Room</button>
           <div class="room-join">
@@ -145,9 +148,6 @@ class GameApp {
 
       <div class="meta-bar">
         <div class="timer" data-timer>00:00.000</div>
-        <div class="relay-health" data-relay-health aria-live="polite">
-          Checking multiplayer server…
-        </div>
         <div class="ping" data-ping hidden>Ping —</div>
         <div class="status-bar" data-status></div>
       </div>
@@ -257,7 +257,9 @@ class GameApp {
   private onRelayHealth(snap: RelayHealthSnapshot): void {
     this.relayHealthEl.textContent = snap.detail;
     this.relayHealthEl.dataset.state = snap.status;
-    this.relayHealthEl.hidden = snap.status === "unconfigured";
+    // Chip lives in the Online room panel — only meaningful while that mode is open.
+    this.relayHealthEl.hidden =
+      !this.isOnline() || snap.status === "unconfigured";
 
     const ready = snap.status === "online";
     this.hostBtn.disabled = !ready;
@@ -285,6 +287,8 @@ class GameApp {
       this.lastPingMs = null;
       this.pingEl.textContent = "Ping —";
     }
+    // Re-apply health chip visibility now that Online panel may have opened.
+    this.onRelayHealth(this.relayHealth.snapshot());
   }
 
   private releaseUiFocus(): void {
