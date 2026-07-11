@@ -140,6 +140,40 @@ body {
   border-radius: var(--radius);
 }
 
+.relay-health {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #eee4da;
+  color: #8f857b;
+  max-width: 100%;
+  text-align: center;
+}
+
+.relay-health[data-state="checking"],
+.relay-health[data-state="waking"] {
+  color: #9a7b2f;
+  background: #f3e6c2;
+}
+
+.relay-health[data-state="online"] {
+  color: #3d7a4a;
+  background: #dcefdc;
+}
+
+.relay-health[data-state="offline"],
+.relay-health[data-state="unconfigured"] {
+  color: #a04a3a;
+  background: #f3d9d2;
+}
+
+.room-panel button:disabled,
+.room-panel input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .ping {
   font-variant-numeric: tabular-nums;
   font-size: 13px;

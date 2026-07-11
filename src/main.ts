@@ -20,6 +20,10 @@ import type {
 } from "./game/types";
 import { DOWN, LEFT, RIGHT, UP } from "./game/types";
 import { WsRoom, type RoomHello, type RoomStatus } from "./net/wsRoom";
+import {
+  RelayHealthMonitor,
+  type RelayHealthSnapshot,
+} from "./net/relayHealth";
 import { BoardView } from "./ui/boardView";
 
 const WASD: Record<string, Direction> = {
@@ -77,6 +81,10 @@ class GameApp {
   private onlineReady = false;
   private onlineHelloSent = false;
   private lastPingMs: number | null = null;
+  private relayHealth = new RelayHealthMonitor();
+  private relayHealthEl!: HTMLElement;
+  private hostBtn!: HTMLButtonElement;
+  private joinBtn!: HTMLButtonElement;
 
   constructor(root: HTMLElement) {
     root.innerHTML = `
@@ -137,6 +145,9 @@ class GameApp {
 
       <div class="meta-bar">
         <div class="timer" data-timer>00:00.000</div>
+        <div class="relay-health" data-relay-health aria-live="polite">
+          Checking multiplayer server…
+        </div>
         <div class="ping" data-ping hidden>Ping —</div>
         <div class="status-bar" data-status></div>
       </div>
@@ -156,6 +167,7 @@ class GameApp {
     this.seedEl = root.querySelector("[data-seed]")!;
     this.helpEl = root.querySelector("[data-help]")!;
     this.timerEl = root.querySelector("[data-timer]")!;
+    this.relayHealthEl = root.querySelector("[data-relay-health]")!;
     this.pingEl = root.querySelector("[data-ping]")!;
     this.roomPanel = root.querySelector("[data-room-panel]")!;
     this.roomStatusEl = root.querySelector("[data-room-status]")!;
@@ -164,6 +176,8 @@ class GameApp {
     this.roomInput = root.querySelector("[data-room-input]")!;
     this.copyBtn = root.querySelector("[data-copy]")!;
     this.leaveBtn = root.querySelector("[data-leave]")!;
+    this.hostBtn = root.querySelector("[data-host]")!;
+    this.joinBtn = root.querySelector("[data-join]")!;
     this.modeSelect = root.querySelector("[data-mode]")!;
     this.opponentSelect = root.querySelector("[data-opponent]")!;
     this.difficultySelect = root.querySelector("[data-difficulty]")!;
@@ -171,8 +185,8 @@ class GameApp {
     this.difficultyWrap = root.querySelector("[data-diff-wrap]")!;
 
     root.querySelector("[data-new]")!.addEventListener("click", () => this.onNewGameClick());
-    root.querySelector("[data-host]")!.addEventListener("click", () => void this.hostRoom());
-    root.querySelector("[data-join]")!.addEventListener("click", () => void this.joinRoom());
+    this.hostBtn.addEventListener("click", () => void this.hostRoom());
+    this.joinBtn.addEventListener("click", () => void this.joinRoom());
     this.leaveBtn.addEventListener("click", () => this.leaveRoom());
     this.copyBtn.addEventListener("click", () => void this.copyRoomCode());
 
@@ -182,6 +196,9 @@ class GameApp {
         void this.joinRoom();
       }
     });
+
+    this.relayHealth.subscribe((snap) => this.onRelayHealth(snap));
+    this.relayHealth.start();
 
     const onSettingChange = () => {
       this.syncChrome();
@@ -235,6 +252,27 @@ class GameApp {
 
   private pendingFor(player: PlayerId): number {
     return pendingGarbageCount(this.match.state, player);
+  }
+
+  private onRelayHealth(snap: RelayHealthSnapshot): void {
+    this.relayHealthEl.textContent = snap.detail;
+    this.relayHealthEl.dataset.state = snap.status;
+    this.relayHealthEl.hidden = snap.status === "unconfigured";
+
+    const ready = snap.status === "online";
+    this.hostBtn.disabled = !ready;
+    this.joinBtn.disabled = !ready;
+    this.roomInput.disabled = !ready;
+
+    if (this.isOnline() && !ready && !this.room?.isConnected()) {
+      if (snap.status === "waking" || snap.status === "checking") {
+        this.roomStatusEl.textContent =
+          "Waiting for multiplayer server to wake up before you can create/join…";
+      } else if (snap.status === "offline") {
+        this.roomStatusEl.textContent =
+          "Multiplayer server is offline. Keep this tab open — it will retry automatically.";
+      }
+    }
   }
 
   private syncChrome(): void {
@@ -463,6 +501,11 @@ class GameApp {
   }
 
   private async hostRoom(): Promise<void> {
+    if (!this.relayHealth.isOnline()) {
+      this.roomStatusEl.textContent =
+        "Multiplayer server is still waking up — wait until it shows ready.";
+      return;
+    }
     if (!this.isOnline()) {
       this.opponentSelect.value = "online";
       this.syncChrome();
@@ -484,6 +527,11 @@ class GameApp {
   }
 
   private async joinRoom(): Promise<void> {
+    if (!this.relayHealth.isOnline()) {
+      this.roomStatusEl.textContent =
+        "Multiplayer server is still waking up — wait until it shows ready.";
+      return;
+    }
     if (!this.isOnline()) {
       this.opponentSelect.value = "online";
       this.syncChrome();

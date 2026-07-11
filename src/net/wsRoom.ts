@@ -1,5 +1,8 @@
 import type { Direction, GameMode } from "../game/types";
 import {
+  resolveRelayWsUrl,
+} from "./relayHealth";
+import {
   generateRoomCode,
   normalizeRoomCode,
   parseMessage,
@@ -46,16 +49,8 @@ type SysMessage =
   | { type: "relay"; from: number; payload: string };
 
 function defaultRelayUrl(): string {
-  const fromEnv = (import.meta.env.VITE_RELAY_URL as string | undefined)?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-
-  // Local relay from `npm run relay` / `npm run dev:online`
-  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    return "ws://127.0.0.1:8787";
-  }
-
-  // Production builds must bake VITE_RELAY_URL in at build time.
-  // Never guess hostname:8787 — that points at GitHub Pages, which is not the relay.
+  const url = resolveRelayWsUrl();
+  if (url) return url;
   throw new Error(
     "Online relay URL is not configured. Set VITE_RELAY_URL (e.g. wss://versus-2048-relay.onrender.com) when building.",
   );
