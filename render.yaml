@@ -8,6 +8,7 @@ services:
   - type: web
     name: versus-2048-relay
     runtime: node
+    region: singapore
     plan: free
     buildCommand: npm install
     startCommand: node server/relay.mjs
