@@ -46,15 +46,19 @@ type SysMessage =
   | { type: "relay"; from: number; payload: string };
 
 function defaultRelayUrl(): string {
-  const fromEnv = import.meta.env.VITE_RELAY_URL as string | undefined;
-  if (fromEnv && fromEnv.trim()) return fromEnv.trim().replace(/\/$/, "");
-  // Local relay started by `npm run relay`
-  const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  // Prefer same hostname so phones on LAN can join via the machine's IP.
+  const fromEnv = (import.meta.env.VITE_RELAY_URL as string | undefined)?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  // Local relay from `npm run relay` / `npm run dev:online`
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
     return "ws://127.0.0.1:8787";
   }
-  return `${proto}//${location.hostname}:8787`;
+
+  // Production builds must bake VITE_RELAY_URL in at build time.
+  // Never guess hostname:8787 — that points at GitHub Pages, which is not the relay.
+  throw new Error(
+    "Online relay URL is not configured. Set VITE_RELAY_URL (e.g. wss://versus-2048-relay.onrender.com) when building.",
+  );
 }
 
 /**
@@ -74,7 +78,13 @@ export class WsRoom {
 
   constructor(handlers: WsRoomHandlers, relayUrl?: string) {
     this.handlers = handlers;
-    this.relayBase = (relayUrl ?? defaultRelayUrl()).replace(/\/$/, "");
+    try {
+      this.relayBase = (relayUrl ?? defaultRelayUrl()).replace(/\/$/, "");
+    } catch (err) {
+      this.relayBase = "";
+      const message = err instanceof Error ? err.message : String(err);
+      queueMicrotask(() => this.handlers.onStatus("error", message));
+    }
   }
 
   getRole(): RoomRole | null {
@@ -90,6 +100,13 @@ export class WsRoom {
   }
 
   async host(): Promise<string> {
+    if (!this.relayBase) {
+      this.handlers.onStatus(
+        "error",
+        "Relay URL missing — rebuild with VITE_RELAY_URL=wss://versus-2048-relay.onrender.com",
+      );
+      throw new Error("relay URL missing");
+    }
     this.teardown();
     this.destroyed = false;
     this.role = "host";
@@ -101,6 +118,13 @@ export class WsRoom {
   }
 
   async join(rawCode: string): Promise<void> {
+    if (!this.relayBase) {
+      this.handlers.onStatus(
+        "error",
+        "Relay URL missing — rebuild with VITE_RELAY_URL=wss://versus-2048-relay.onrender.com",
+      );
+      throw new Error("relay URL missing");
+    }
     const code = normalizeRoomCode(rawCode);
     if (code.length !== 6) {
       this.handlers.onStatus("error", "Room code must be 6 characters");

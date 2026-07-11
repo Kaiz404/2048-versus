@@ -30,12 +30,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check relay URL secret
+        env:
+          VITE_RELAY_URL: ${{ secrets.VITE_RELAY_URL }}
+        run: |
+          if [ -z "$VITE_RELAY_URL" ]; then
+            echo "::error::Repository secret VITE_RELAY_URL is missing or empty."
+            echo "Set it under Settings → Secrets and variables → Actions (repo secret, not environment)."
+            echo "Example: wss://versus-2048-relay.onrender.com"
+            exit 1
+          fi
+          case "$VITE_RELAY_URL" in
+            wss://*|ws://*) echo "VITE_RELAY_URL is set (scheme ok)" ;;
+            *)
+              echo "::error::VITE_RELAY_URL must start with wss:// or ws://"
+              exit 1
+              ;;
+          esac
+
       - name: Build
         run: npm run build
         env:
           GITHUB_ACTIONS: true
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # Optional: set this repo secret to enable Online mode on the Pages site.
+          # Must be a repository Action secret (not an Environment secret).
           # Example: wss://versus-2048-relay.onrender.com
           VITE_RELAY_URL: ${{ secrets.VITE_RELAY_URL }}
 
