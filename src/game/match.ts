@@ -184,6 +184,9 @@ export function playerLabel(id: PlayerId, opponent: MatchConfig["opponent"]): st
   if (opponent === "ai") {
     return id === 0 ? "You" : "AI";
   }
+  if (opponent === "online") {
+    return id === 0 ? "You" : "Opponent";
+  }
   return id === 0 ? "Player 1 (WASD)" : "Player 2 (Arrows)";
 }
 

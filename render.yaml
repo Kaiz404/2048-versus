@@ -1,0 +1,17 @@
+# Free Web Service for the online-match WebSocket relay (Render.com).
+# 1. Push this repo to GitHub
+# 2. Render → New → Blueprint → select repo
+# 3. After deploy, copy the https URL, change to wss://…, and set
+#    GitHub Actions secret VITE_RELAY_URL=wss://YOUR-SERVICE.onrender.com
+
+services:
+  - type: web
+    name: versus-2048-relay
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/relay.mjs
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 10000

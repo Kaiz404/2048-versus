@@ -35,6 +35,9 @@ jobs:
         env:
           GITHUB_ACTIONS: true
           GITHUB_REPOSITORY: ${{ github.repository }}
+          # Optional: set this repo secret to enable Online mode on the Pages site.
+          # Example: wss://versus-2048-relay.onrender.com
+          VITE_RELAY_URL: ${{ secrets.VITE_RELAY_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -1,70 +1,110 @@
 # 2048 Versus
 
-Browser-based two-player 2048. Local couch co-op or vs AI. No accounts, no server — pure static files.
+Browser-based two-player 2048. Local couch co-op, vs AI, or **online 1v1** across browsers/laptops.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173/
-npm run build      # output → dist/
-npm run preview    # serve dist/ locally
+npm run dev          # local / AI play — http://localhost:5173/
+npm run dev:online   # game UI + WebSocket relay together
+npm run build
 npm run test:engine
 ```
+
+For online testing with two browsers (normal + incognito):
+
+```bash
+npm run dev:online
+```
+
+Then both tabs → Opponent: **Online** → Create Room / Join with the code.
 
 ---
 
 ## Architecture
 
-The app is split so **game rules never touch the DOM**, and **AI never runs on the UI thread**.
-
 ```
-┌─────────────────────────────────────────────────────────┐
-│  main.ts          UI shell, input, match orchestration  │
-│       │                                                 │
-│       ├──── BoardView (ui/)     DOM tiles + CSS anims   │
-│       │                                                 │
-│       ├──── match.ts / board.ts  pure game engine       │
-│       │                                                 │
-│       └──── AiClient ──postMessage──► Web Worker        │
-│                              │                          │
-│                              └─ ai.ts expectimax search │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  main.ts          UI shell, input, match orchestration       │
+│       │                                                      │
+│       ├──── BoardView (ui/)     DOM tiles + CSS anims        │
+│       │                                                      │
+│       ├──── match.ts / board.ts  pure game engine            │
+│       │                                                      │
+│       ├──── AiClient ──postMessage──► Web Worker             │
+│       │                                                      │
+│       └──── WsRoom (net/) ──WebSocket──► server/relay.mjs    │
+│              (relays tiny JSON moves between 2 peers)        │
+└──────────────────────────────────────────────────────────────┘
 ```
 
+| Path | Role |
+|------|------|
+| `src/main.ts` | App shell |
+| `src/game/*` | Pure engine |
+| `src/net/protocol.ts` | Room codes + game message types |
+| `src/net/wsRoom.ts` | Online room client (host/join, ping) |
+| `server/relay.mjs` | Tiny WebSocket room relay |
+| `src/ai/*` | Web Worker AI |
 
+---
 
-### Module map
+## Online multiplayer
 
+### What went wrong with WebRTC/PeerJS
 
-| Path                  | Role                                                               |
-| --------------------- | ------------------------------------------------------------------ |
-| `src/main.ts`         | App shell: mode/opponent controls, keyboard routing, AI scheduling |
-| `src/game/types.ts`   | Shared types (`Direction`, `MatchState`, `MoveResult`, …)          |
-| `src/game/rng.ts`     | Seeded Mulberry32 PRNG — same seed ⇒ same spawn sequence           |
-| `src/game/board.ts`   | Single-board mechanics: slide, merge, spawn, garbage walls         |
-| `src/game/match.ts`   | Two-player match: win/lose, pending garbage, shared seed           |
-| `src/game/ai.ts`      | Expectimax + heuristic (DOM-free; safe to import in a worker)      |
-| `src/ai/worker.ts`    | Worker entry: receives board snapshot, returns a move              |
-| `src/ai/client.ts`    | Main-thread wrapper around the worker (`postMessage` API)          |
-| `src/ui/boardView.ts` | One player's board: tile DOM, short CSS transitions                |
-| `src/style.css`       | Classic Cirulli-style 2048 palette                                 |
+Your logs showed the real failure mode:
 
+- Signaling **worked** (host saw `Incoming connection`)
+- ICE stuck in `checking` / PC `connecting`
+- Data channel **never opened**
 
+That’s common with public PeerJS + browser NAT/ICE (and dead free TURN). For 2048 we only sync tiny move JSON, so a **WebSocket relay is simpler and far more reliable**.
 
+### How it works now
 
-### Data flow for one human move
+1. Run the relay (`npm run relay` or `npm run dev:online`)
+2. Host **Create Room** → 6-character code
+3. Guest **Join** with that code
+4. Relay pairs the two sockets and forwards game messages
+5. Host sends `{ hello, seed, mode, target }`
+6. Moves / restarts / ping-pong go through the same socket
+7. Ping = RTT of `{ ping }` / `{ pong }`
 
-1. `keydown` → `GameApp.tryMove(player, direction)`
-2. `applyPlayerMove` mutates pure state (slide → score → tick garbage → spawn → win check)
-3. `BoardView.playMove` animates tile transforms (~100ms); if another key arrives mid-animation, it **snaps** to the latest board instead of stacking transitions
-4. Opponent’s “incoming garbage” indicator is refreshed if needed
+### Production relay URL
 
+Default relay is `ws://127.0.0.1:8787` (local only).
 
+You now deploy **two things**:
 
-### Fairness (shared seed)
+1. **Static game** → GitHub Pages (already wired)
+2. **WebSocket relay** → a tiny always-on Node service (`server/relay.mjs`)
 
-Both players start from the **same Mulberry32 seed**. Each board has its own RNG instance initialized with that seed, so identical move sequences produce identical boards. Race mode is skill, not luck.
+#### A. Deploy the relay (free on Render)
+
+1. Push this repo to GitHub (includes `render.yaml`)
+2. Go to [Render](https://render.com) → **New** → **Blueprint** → select the repo  
+   (or New Web Service → root directory → start command `node server/relay.mjs`)
+3. Wait until it’s live, open the service URL (https://….onrender.com) — you should see `2048 Versus relay OK`
+4. Your WebSocket URL is the same host with **`wss://`**:
+   `wss://YOUR-SERVICE.onrender.com`
+
+> Free Render services sleep after idle. First Online join after a nap can take ~30s while it wakes.
+
+#### B. Point the GitHub Pages build at the relay
+
+1. GitHub repo → **Settings → Secrets and variables → Actions**
+2. New secret: `VITE_RELAY_URL` = `wss://YOUR-SERVICE.onrender.com`
+3. Push to `main`/`master` (or run the Pages workflow)
+
+The workflow already passes `secrets.VITE_RELAY_URL` into `npm run build`.
+
+#### Local online (no deploy)
+
+```bash
+npm run dev:online
+```
 
 ---
 

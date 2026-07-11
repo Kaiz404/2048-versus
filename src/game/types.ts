@@ -13,7 +13,7 @@ export const CELLS = 16;
 export const GARBAGE = -1;
 
 export type GameMode = "race" | "garbage";
-export type Opponent = "local" | "ai";
+export type Opponent = "local" | "ai" | "online";
 export type AiDifficulty = "easy" | "normal" | "hard";
 export type PlayerId = 0 | 1;
 
