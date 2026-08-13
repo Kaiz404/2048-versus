@@ -2,6 +2,9 @@
 
 Browser-based two-player 2048. Local couch co-op, vs AI, or **online 1v1** across browsers/laptops.
 
+<img width="1646" height="987" alt="image" src="https://github.com/user-attachments/assets/df432b23-649f-4053-83ce-6be593500078" />
+
+
 ## Quick start
 
 ```bash
