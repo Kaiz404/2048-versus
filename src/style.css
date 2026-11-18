@@ -388,6 +388,7 @@ body {
   background: var(--board);
   border-radius: 8px;
   padding: 10px;
+  touch-action: none;
 }
 
 .grid-bg {
@@ -594,4 +595,277 @@ body {
   font-size: 12px;
   color: #b0a79c;
   text-align: center;
+}
+
+.tips-link {
+  display: inline;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--button);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tips-link:hover {
+  color: var(--text);
+}
+
+.coach[hidden] {
+  display: none;
+}
+
+.coach {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  width: min(100%, 460px);
+  margin: 4px auto 0;
+  padding: 10px 36px 10px 14px;
+  background: #eee4da;
+  border-radius: 8px;
+}
+
+.coach-demo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.coach-demo[hidden] {
+  display: none;
+}
+
+.coach-merge {
+  position: relative;
+  width: 96px;
+  height: 44px;
+  flex: none;
+}
+
+.coach-tile {
+  position: absolute;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--tile-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  background: #f9f6f2;
+  color: var(--text);
+}
+
+.coach-tile-a {
+  left: 0;
+  z-index: 1;
+}
+
+.coach-tile-b {
+  left: 52px;
+  z-index: 2;
+  animation: coach-slide 2.4s ease-in-out infinite;
+}
+
+.coach-tile-sum {
+  left: 0;
+  z-index: 3;
+  background: #ede0c8;
+  opacity: 0;
+  animation: coach-pop 2.4s ease-in-out infinite;
+}
+
+.coach-keys {
+  display: grid;
+  grid-template-columns: 26px 26px 26px;
+  grid-template-areas:
+    ". up ."
+    "left down right";
+  gap: 3px;
+  flex: none;
+}
+
+.k {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: #f9f6f2;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  animation: coach-key 2.4s ease-in-out infinite;
+}
+
+.k-up {
+  grid-area: up;
+  animation-delay: 0s;
+}
+.k-left {
+  grid-area: left;
+  animation-delay: 0.6s;
+}
+.k-down {
+  grid-area: down;
+  animation-delay: 1.2s;
+}
+.k-right {
+  grid-area: right;
+  animation-delay: 1.8s;
+}
+
+.coach-race {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coach-side {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9086;
+}
+
+.coach-flag {
+  min-width: 64px;
+  padding: 8px 10px;
+  border-radius: var(--tile-radius);
+  background: var(--gold);
+  color: var(--text-bright);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.coach-caption {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.coach-skip {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  color: #b0a79c;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coach-skip:hover {
+  color: var(--text);
+}
+
+.player-panel {
+  transition: opacity 280ms ease;
+}
+
+.player-panel.coach-dim {
+  opacity: 0.4;
+}
+
+.player-panel.coach-live .board-wrap,
+.player-panel.coach-focus .board-wrap {
+  box-shadow: 0 0 0 3px var(--gold);
+}
+
+@keyframes coach-slide {
+  0%,
+  18% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  46%,
+  58% {
+    transform: translateX(-52px);
+    opacity: 1;
+  }
+  74%,
+  100% {
+    transform: translateX(-52px);
+    opacity: 0;
+  }
+}
+
+@keyframes coach-pop {
+  0%,
+  50% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  64% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes coach-key {
+  0%,
+  12%,
+  34%,
+  100% {
+    background: #f9f6f2;
+    color: var(--text);
+    transform: none;
+  }
+  18%,
+  28% {
+    background: var(--gold);
+    color: var(--text-bright);
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-tile-b,
+  .coach-tile-sum,
+  .k,
+  .player-panel {
+    animation: none;
+    transition: none;
+  }
+
+  .coach-merge {
+    width: 148px;
+  }
+
+  .coach-tile-b {
+    left: 52px;
+    opacity: 1;
+  }
+
+  .coach-tile-sum {
+    left: 104px;
+    opacity: 1;
+    transform: none;
+  }
 }

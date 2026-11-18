@@ -25,6 +25,7 @@ import {
   type RelayHealthSnapshot,
 } from "./net/relayHealth";
 import { BoardView } from "./ui/boardView";
+import { Coach } from "./ui/coach";
 
 const WASD: Record<string, Direction> = {
   w: UP,
@@ -72,6 +73,8 @@ class GameApp {
   private difficultySelect: HTMLSelectElement;
   private targetSelect: HTMLSelectElement;
   private difficultyWrap: HTMLElement;
+  private coach!: Coach;
+  private taglineEl!: HTMLElement;
 
   private timerStart: number | null = null;
   private timerFrozenMs = 0;
@@ -91,7 +94,7 @@ class GameApp {
       <div class="top-bar">
         <div class="brand">
           <h1>2048</h1>
-          <p class="tagline">Versus — two boards, one screen</p>
+          <p class="tagline">You vs a bot</p>
         </div>
         <div class="controls">
           <label>Mode
@@ -102,8 +105,8 @@ class GameApp {
           </label>
           <label>Opponent
             <select data-opponent>
+              <option value="ai" selected>vs AI</option>
               <option value="local">Local 1v1</option>
-              <option value="ai">vs AI</option>
               <option value="online">Online</option>
             </select>
           </label>
@@ -183,6 +186,23 @@ class GameApp {
     this.difficultySelect = root.querySelector("[data-difficulty]")!;
     this.targetSelect = root.querySelector("[data-target]")!;
     this.difficultyWrap = root.querySelector("[data-diff-wrap]")!;
+    this.taglineEl = root.querySelector(".tagline")!;
+
+    const meta = root.querySelector(".meta-bar")!;
+    this.coach = new Coach(meta, [this.views[0].root, this.views[1].root], () =>
+      this.onCoachDone(),
+    );
+    this.helpEl.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof Element) || !target.closest("[data-tips]")) return;
+      if (!this.isOnline() && this.match?.state.status !== "playing") this.newGame();
+      this.coach.start(Number(this.targetSelect.value), true);
+      this.helpEl.hidden = true;
+      if (!this.statusEl.classList.contains("win")) {
+        this.statusEl.textContent = "";
+      }
+    });
+    this.bindSwipe(arena);
 
     root.querySelector("[data-new]")!.addEventListener("click", () => this.onNewGameClick());
     this.hostBtn.addEventListener("click", () => void this.hostRoom());
@@ -280,6 +300,11 @@ class GameApp {
   private syncChrome(): void {
     const vsAi = this.opponentSelect.value === "ai";
     const online = this.isOnline();
+    this.taglineEl.textContent = vsAi
+      ? "You vs a bot"
+      : online
+        ? "You vs a friend"
+        : "Two players, one keyboard";
     this.difficultyWrap.style.display = vsAi ? "" : "none";
     this.roomPanel.hidden = !online;
     this.pingEl.hidden = !online;
@@ -310,35 +335,43 @@ class GameApp {
     return false;
   }
 
+  private tipsButton(): string {
+    if (this.opponentSelect.value !== "ai") return "";
+    return `<button type="button" class="tips-link" data-tips>Tips</button>`;
+  }
+
   private updateHelp(mode: GameMode): void {
+    const tips = this.tipsButton();
     if (mode === "garbage") {
       this.helpEl.innerHTML = `
         <p class="help-lead">
-          <strong>Garbage Duel</strong> — race to the target, but big merges attack your opponent.
+          Big merges send a blocker. It replaces their next spawn.${tips}
         </p>
         <ul class="garbage-rules">
-          <li>Merge a <strong>128</strong> → send a blocker lasting <strong>3</strong> moves</li>
-          <li>Merge a <strong>256</strong> → send a blocker lasting <strong>4</strong> moves</li>
-          <li>Merge a <strong>512</strong> → send a blocker lasting <strong>5</strong> moves</li>
-          <li>Merge a <strong>1024</strong> → send a blocker lasting <strong>6</strong> moves</li>
-          <li>Merge a <strong>2048+</strong> → send a blocker lasting <strong>7</strong> moves</li>
+          <li>Merge a <strong>128</strong> → lasts <strong>3</strong> moves</li>
+          <li>Merge a <strong>256</strong> → lasts <strong>4</strong> moves</li>
+          <li>Merge a <strong>512</strong> → lasts <strong>5</strong> moves</li>
+          <li>Merge a <strong>1024</strong> → lasts <strong>6</strong> moves</li>
+          <li>Merge a <strong>2048+</strong> → lasts <strong>7</strong> moves</li>
         </ul>
-        <p class="help-note">
-          Incoming garbage replaces their next <strong>2/4 spawn</strong> — it never overwrites
-          existing tiles. The number on a blocker is moves left before it vanishes.
-          <strong>Space</strong> resets the match.
-          Online uses a WebSocket relay — run <code>npm run relay</code> locally, then share the room code.
-        </p>
       `;
     } else {
       this.helpEl.innerHTML = `
-        <p class="help-lead">
-          <strong>Race</strong> — both boards share the same random seed, so luck is equal.
-          First to the target tile wins. If a board locks up, the higher score wins.
-          <strong>Space</strong> resets the match.
-          Online: run <code>npm run relay</code>, create/join a room across browsers.
-        </p>
+        <p class="help-lead">Same tiles on both boards. Space starts over.${tips}</p>
       `;
+    }
+  }
+
+  private onCoachDone(): void {
+    this.helpEl.hidden = false;
+    this.updateHelp(this.match.state.config.mode);
+    if (this.statusEl.classList.contains("win")) return;
+    if (this.match.state.message) {
+      this.statusEl.textContent = this.match.state.message;
+      return;
+    }
+    if (this.match.state.status === "playing" && this.match.state.config.opponent === "ai") {
+      this.statusEl.textContent = this.aiArmed ? "Race on — beat the AI!" : "Your move";
     }
   }
 
@@ -665,6 +698,9 @@ class GameApp {
     this.resetTimerDisplay();
 
     if (this.isOnline()) {
+      if (this.coach.step === "race") this.coach.complete(true);
+      else this.coach.hide();
+      this.helpEl.hidden = false;
       // Stay idle until a room hello / host seed exists.
       this.match = createMatch(this.readConfig(randomSeed()));
       this.refreshAllBoards();
@@ -681,6 +717,8 @@ class GameApp {
       return;
     }
 
+    if (this.coach.step === "race") this.coach.complete(true);
+
     this.match = createMatch(this.readConfig());
     const { config } = this.match.state;
     const vsAi = config.opponent === "ai";
@@ -688,17 +726,81 @@ class GameApp {
     this.refreshBoardTitles();
     this.refreshAllBoards();
 
-    this.statusEl.textContent = vsAi
-      ? "Make your first move to start the race!"
-      : "Go! Player 1: WASD · Player 2: Arrows · Space resets";
     this.statusEl.classList.remove("win");
     this.seedEl.textContent = `Seed ${this.match.state.seed} · fair shared RNG`;
-    this.updateHelp(config.mode);
     this.releaseUiFocus();
+
+    if (vsAi && this.coach.shouldOffer()) {
+      this.statusEl.textContent = "";
+      this.helpEl.hidden = true;
+      this.coach.start(config.target);
+      return;
+    }
+
+    this.coach.hide();
+    this.helpEl.hidden = false;
+    this.statusEl.textContent = vsAi
+      ? "Your move"
+      : "Go! Player 1: WASD · Player 2: Arrows";
+    this.updateHelp(config.mode);
   }
 
   private onResize(): void {
     this.refreshAllBoards();
+  }
+
+  private bindSwipe(arena: Element): void {
+    let start: { x: number; y: number; id: number } | null = null;
+
+    arena.addEventListener("pointerdown", (event) => {
+      if (!(event instanceof PointerEvent)) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("button, a, input, select")) return;
+      start = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      if (target instanceof HTMLElement) target.setPointerCapture?.(event.pointerId);
+    });
+
+    arena.addEventListener("pointerup", (event) => {
+      if (!(event instanceof PointerEvent) || !start || event.pointerId !== start.id) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      const origin = start;
+      start = null;
+      if (Math.hypot(dx, dy) < 30) return;
+      const dir: Direction =
+        Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? RIGHT
+            : LEFT
+          : dy > 0
+            ? DOWN
+            : UP;
+      this.onSwipe(dir, event.target, origin);
+    });
+
+    arena.addEventListener("pointercancel", () => {
+      start = null;
+    });
+  }
+
+  private onSwipe(
+    dir: Direction,
+    target: EventTarget | null,
+    origin: { x: number; y: number },
+  ): void {
+    const { opponent } = this.match.state.config;
+    let player: PlayerId = 0;
+    if (opponent === "online") {
+      if (!this.onlineReady || !this.room?.isConnected()) return;
+      player = this.localSeat();
+    } else if (opponent === "local") {
+      const hit =
+        (target instanceof Element ? target.closest(".player-panel") : null) ??
+        document.elementFromPoint(origin.x, origin.y)?.closest(".player-panel");
+      player = hit === this.views[1].root ? 1 : 0;
+    }
+    void this.tryMove(player, dir, { broadcast: true });
   }
 
   private onKey(e: KeyboardEvent): void {
@@ -716,6 +818,7 @@ class GameApp {
 
     if (e.code === "Space" || e.key === " ") {
       e.preventDefault();
+      if (this.coach.step === "slide") return;
       this.onNewGameClick();
       return;
     }
@@ -765,15 +868,15 @@ class GameApp {
 
     this.startTimer();
 
-    if (
-      player === 0 &&
-      this.match.state.config.opponent === "ai" &&
-      !this.aiArmed
-    ) {
+    const vsAi = this.match.state.config.opponent === "ai";
+    if (player === 0 && vsAi && !this.aiArmed) {
       this.aiArmed = true;
-      this.statusEl.textContent = "Race on — beat the AI!";
+      if (this.coach.step === "off") {
+        this.statusEl.textContent = "Race on — beat the AI!";
+      }
       this.scheduleAi();
     }
+    if (vsAi && player === 0) this.coach.noteMove();
 
     if (
       opts.broadcast &&
