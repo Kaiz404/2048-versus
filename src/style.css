@@ -382,12 +382,14 @@ body {
 }
 
 .board-wrap {
+  --pad: 10px;
+  --gap: 10px;
   position: relative;
   width: 100%;
   aspect-ratio: 1;
   background: var(--board);
   border-radius: 8px;
-  padding: 10px;
+  padding: var(--pad);
   touch-action: none;
 }
 
@@ -395,7 +397,7 @@ body {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(4, 1fr);
-  gap: 10px;
+  gap: var(--gap);
   width: 100%;
   height: 100%;
 }
@@ -407,7 +409,7 @@ body {
 
 .tile-layer {
   position: absolute;
-  inset: 10px;
+  inset: var(--pad);
   pointer-events: none;
 }
 
@@ -415,8 +417,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  width: calc((100% - 30px) / 4);
-  height: calc((100% - 30px) / 4);
+  width: calc((100% - 3 * var(--gap)) / 4);
+  height: calc((100% - 3 * var(--gap)) / 4);
   border-radius: var(--tile-radius);
   display: flex;
   align-items: center;
@@ -867,5 +869,124 @@ body {
     left: 104px;
     opacity: 1;
     transform: none;
+  }
+}
+
+/*
+  A narrow or short window cannot hold two equal boards.
+  Your board stays the play surface. The opponent shrinks to about a quarter of its area.
+*/
+@media (max-width: 840px), (max-height: 560px) and (max-width: 1100px) {
+  html.vs-solo #app {
+    padding: 12px 12px 28px;
+  }
+
+  html.vs-solo .brand h1 {
+    font-size: 34px;
+  }
+
+  html.vs-solo .brand .tagline {
+    margin-top: 2px;
+    font-size: 13px;
+  }
+
+  html.vs-solo .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  html.vs-solo .controls {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  html.vs-solo .controls select,
+  html.vs-solo .controls button {
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  html.vs-solo .meta-bar {
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  html.vs-solo .timer {
+    font-size: 16px;
+    padding: 2px 10px;
+  }
+
+  html.vs-solo .status-bar {
+    min-height: 22px;
+    font-size: 15px;
+  }
+
+  html.vs-solo .arena {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  html.vs-solo .player-panel:first-child {
+    order: 2;
+  }
+
+  html.vs-solo .player-panel:first-child .board-wrap {
+    width: 100%;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) {
+    order: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    gap: 8px 12px;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .pending-garbage {
+    flex: 1 0 100%;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .player-header {
+    flex: none;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .player-controls,
+  html.vs-solo .player-panel:nth-child(2) .score-box:last-child {
+    display: none;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .player-title {
+    font-size: 16px;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .board-wrap {
+    width: min(46vw, 172px);
+    flex: none;
+    --pad: 5px;
+    --gap: 4px;
+  }
+
+  html.vs-solo .player-panel:nth-child(2) .tile {
+    font-size: 13px;
+  }
+}
+
+@media (max-height: 500px) and (max-width: 1100px) {
+  html.vs-solo .player-panel:first-child .board-wrap {
+    width: min(100%, calc(100dvh - 230px));
+    margin-inline: auto;
   }
 }

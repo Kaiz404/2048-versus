@@ -255,6 +255,11 @@ class GameApp {
     return this.opponentSelect.value === "online";
   }
 
+  /** One human on this screen. The other board can shrink on a small window. */
+  private isLocal(): boolean {
+    return this.opponentSelect.value === "local";
+  }
+
   /** Host = seat 0, guest = seat 1. Offline modes use natural seats. */
   private localSeat(): PlayerId {
     if (this.isOnline() && this.room?.getRole() === "guest") return 1;
@@ -306,6 +311,7 @@ class GameApp {
         ? "You vs a friend"
         : "Two players, one keyboard";
     this.difficultyWrap.style.display = vsAi ? "" : "none";
+    document.documentElement.classList.toggle("vs-solo", !this.isLocal());
     this.roomPanel.hidden = !online;
     this.pingEl.hidden = !online;
     if (!online) {
